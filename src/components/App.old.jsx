@@ -1,3 +1,4 @@
+import { Component } from 'react';
 import { GlobalStyle } from 'GlobalStyle';
 import { Searchbar } from './Searchbar/Searchbar';
 import { ImageGallery } from './ImageGallery/ImageGallery';
@@ -6,23 +7,24 @@ import { fetchImages } from '../api';
 import { Loader } from './Loader/Loader';
 import { StyledApp } from './App.styled';
 import toast, { Toaster } from 'react-hot-toast';
-import { useEffect, useState } from 'react';
 
 const per_page = 12;
 
-export const App = () => {
-  const [query, setQuery] = useState('');
-  const [images, setImages] = useState([]);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [totalPages, setTotalPages] = useState(1);
+export class App extends Component {
+  state = {
+    query: '',
+    images: [],
+    page: 1,
+    loading: false,
+    totalPages: 1,
+  };
 
-  useEffect(() => {
-    if (!query) return;
+  async componentDidUpdate(prevProps, prevState) {
+    const { query, page } = this.state;
 
-    async function fetchData() {
+    if (prevState.query !== query || prevState.page !== page) {
       try {
-        setLoading(true);
+        this.setState({ loading: true });
         const searchQuery = query.slice(query.indexOf('/') + 1);
         const items = await fetchImages(searchQuery, page, per_page);
         const { hits, total } = items;
@@ -33,8 +35,10 @@ export const App = () => {
             duration: 2000,
           });
         } else {
-          setImages(prevState => (page > 1 ? [...prevState, ...hits] : hits));
-          setTotalPages(totalPages);
+          this.setState(prevState => ({
+            images: page > 1 ? [...prevState.images, ...hits] : hits,
+            totalPages,
+          }));
 
           if (page === totalPages) {
             toast.success('That`s all images!', {
@@ -53,32 +57,35 @@ export const App = () => {
       } catch (error) {
         console.log(error);
       } finally {
-        setLoading(false);
+        this.setState({ loading: false });
       }
     }
+  }
 
-    fetchData();
-  }, [query, page]);
-
-  const changeQuery = newQuery => {
-    setQuery(`${Date.now()}/${newQuery}`);
-    setImages([]);
-    setPage(1);
-    setTotalPages(1);
+  changeQuery = newQuery => {
+    this.setState({
+      query: `${Date.now()}/${newQuery}`,
+      images: [],
+      page: 1,
+      totalPages: 1,
+    });
   };
 
-  const handleLoadMore = () => {
-    setPage(prevState => prevState + 1);
+  handleLoadMore = () => {
+    this.setState(prevState => ({ page: prevState.page + 1 }));
   };
 
-  return (
-    <StyledApp>
-      <Searchbar onSubmit={changeQuery} />
-      {images.length > 0 && <ImageGallery images={images} />}
-      {loading && <Loader />}
-      {page < totalPages && <Button onClick={handleLoadMore} />}
-      <Toaster />
-      <GlobalStyle />
-    </StyledApp>
-  );
-};
+  render() {
+    const { images, loading, page, totalPages } = this.state;
+    return (
+      <StyledApp>
+        <Searchbar onSubmit={this.changeQuery} />
+        {images.length > 0 && <ImageGallery images={images} />}
+        {loading && <Loader />}
+        {page < totalPages && <Button onClick={this.handleLoadMore} />}
+        <Toaster />
+        <GlobalStyle />
+      </StyledApp>
+    );
+  }
+}
